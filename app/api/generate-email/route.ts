@@ -46,13 +46,17 @@ export async function POST(request: Request) {
       message.toLowerCase().includes("network") ||
       message.toLowerCase().includes("connection");
 
+    const isUserFacingError =
+      message.includes("couldn't identify a valid email request") ||
+      message.includes("did not return an email");
+
     return NextResponse.json<GenerateEmailErrorResponse>(
       {
         error: isNetworkError
           ? "Network error. Please check your connection and try again."
-          : "Failed to generate email. Please try again in a moment.",
+          : message,
       },
-      { status: 500 }
+      { status: isUserFacingError ? 400 : 500 }
     );
   }
 }
