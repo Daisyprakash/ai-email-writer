@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
 
+import { auth } from "@/lib/auth";
 import { generateEmail } from "@/lib/openai";
 import type { GenerateEmailErrorResponse, GenerateEmailResponse } from "@/types/email";
 import { validateGenerateEmailRequest } from "@/utils/validation";
 
 export async function POST(request: Request) {
   try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return NextResponse.json<GenerateEmailErrorResponse>(
+        { error: "Unauthorized. Please sign in to generate emails." },
+        { status: 401 }
+      );
+    }
+
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json<GenerateEmailErrorResponse>(
         { error: "OpenAI API key is not configured." },

@@ -28,7 +28,7 @@ const DEFAULT_FORM_DATA: EmailFormData = {
   additionalInstructions: "",
 };
 
-export default function HomePage() {
+export function EmailWriter() {
   const [formData, setFormData] = useState<EmailFormData>(DEFAULT_FORM_DATA);
   const [generatedEmail, setGeneratedEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -117,7 +117,7 @@ export default function HomePage() {
   };
 
   return (
-    <main className="relative min-h-full flex-1">
+    <div className="relative min-h-full flex-1">
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-24 left-1/2 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl dark:bg-primary/20" />
         <div className="absolute right-0 bottom-0 h-64 w-64 rounded-full bg-muted/60 blur-3xl" />
@@ -160,6 +160,6 @@ export default function HomePage() {
           />
         </div>
       </div>
-    </main>
+    </div>
   );
 }
