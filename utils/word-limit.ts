@@ -11,3 +11,4 @@ export function countWords(text: string): number {
 export function exceedsWordLimit(text: string, maxWords: number): boolean {
   return countWords(text) > maxWords;
 }
+
