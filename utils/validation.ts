@@ -1,10 +1,13 @@
 import {
+  ADDITIONAL_INSTRUCTIONS_MAX_WORDS,
   EMAIL_LENGTHS,
   EMAIL_TONES,
+  PROMPT_MAX_WORDS,
   type EmailLength,
   type EmailTone,
   type GenerateEmailRequest,
 } from "@/types/email";
+import { countWords, exceedsWordLimit } from "@/utils/word-limit";
 
 export function isValidTone(value: string): value is EmailTone {
   return EMAIL_TONES.includes(value as EmailTone);
@@ -33,6 +36,13 @@ export function validateGenerateEmailRequest(
     };
   }
 
+  if (exceedsWordLimit(prompt, PROMPT_MAX_WORDS)) {
+    return {
+      success: false,
+      error: `Description must be ${PROMPT_MAX_WORDS} words or fewer (currently ${countWords(prompt)}).`,
+    };
+  }
+
   if (typeof tone !== "string" || !isValidTone(tone)) {
     return { success: false, error: "Please select a valid email tone." };
   }
@@ -49,6 +59,17 @@ export function validateGenerateEmailRequest(
     return {
       success: false,
       error: "Additional instructions must be text.",
+    };
+  }
+
+  if (
+    typeof additionalInstructions === "string" &&
+    additionalInstructions.trim() &&
+    exceedsWordLimit(additionalInstructions, ADDITIONAL_INSTRUCTIONS_MAX_WORDS)
+  ) {
+    return {
+      success: false,
+      error: `Additional instructions must be ${ADDITIONAL_INSTRUCTIONS_MAX_WORDS} words or fewer (currently ${countWords(additionalInstructions)}).`,
     };
   }
 

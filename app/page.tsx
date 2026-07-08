@@ -12,11 +12,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type {
-  EmailFormData,
-  GenerateEmailErrorResponse,
-  GenerateEmailResponse,
+import {
+  ADDITIONAL_INSTRUCTIONS_MAX_WORDS,
+  PROMPT_MAX_WORDS,
+  type EmailFormData,
+  type GenerateEmailErrorResponse,
+  type GenerateEmailResponse,
 } from "@/types/email";
+import { exceedsWordLimit } from "@/utils/word-limit";
 
 const DEFAULT_FORM_DATA: EmailFormData = {
   prompt: "",
@@ -37,6 +40,17 @@ export default function HomePage() {
 
     if (!data.prompt.trim()) {
       setError("Please describe the email you want to write.");
+      return;
+    }
+
+    if (
+      exceedsWordLimit(data.prompt, PROMPT_MAX_WORDS) ||
+      exceedsWordLimit(
+        data.additionalInstructions,
+        ADDITIONAL_INSTRUCTIONS_MAX_WORDS
+      )
+    ) {
+      setError("Please fix the word limit errors before generating.");
       return;
     }
 

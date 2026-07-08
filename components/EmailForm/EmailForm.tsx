@@ -11,10 +11,14 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  ADDITIONAL_INSTRUCTIONS_MAX_WORDS,
   EMAIL_LENGTHS,
   EMAIL_TONES,
+  PROMPT_MAX_WORDS,
   type EmailFormData,
 } from "@/types/email";
+import { cn } from "@/lib/utils";
+import { countWords, exceedsWordLimit } from "@/utils/word-limit";
 import { Loader2, Sparkles } from "lucide-react";
 
 interface EmailFormProps {
@@ -24,12 +28,43 @@ interface EmailFormProps {
   onSubmit: () => void;
 }
 
+function WordCount({
+  current,
+  max,
+}: {
+  current: number;
+  max: number;
+}) {
+  const isOverLimit = current > max;
+
+  return (
+    <p
+      className={cn(
+        "text-right text-xs",
+        isOverLimit ? "text-destructive" : "text-muted-foreground"
+      )}
+      aria-live="polite"
+    >
+      {current} / {max} words
+    </p>
+  );
+}
+
 export function EmailForm({
   formData,
   isLoading,
   onChange,
   onSubmit,
 }: EmailFormProps) {
+  const promptWordCount = countWords(formData.prompt);
+  const additionalWordCount = countWords(formData.additionalInstructions);
+  const promptOverLimit = exceedsWordLimit(formData.prompt, PROMPT_MAX_WORDS);
+  const additionalOverLimit = exceedsWordLimit(
+    formData.additionalInstructions,
+    ADDITIONAL_INSTRUCTIONS_MAX_WORDS
+  );
+  const hasWordLimitError = promptOverLimit || additionalOverLimit;
+
   const updateField = <K extends keyof EmailFormData>(
     key: K,
     value: EmailFormData[K]
@@ -39,7 +74,7 @@ export function EmailForm({
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!isLoading) {
+    if (!isLoading && !hasWordLimitError && formData.prompt.trim()) {
       onSubmit();
     }
   };
@@ -61,8 +96,15 @@ export function EmailForm({
           rows={5}
           disabled={isLoading}
           required
-          className="min-h-32 resize-y"
+          aria-invalid={promptOverLimit}
+          className={cn("min-h-32 resize-y", promptOverLimit && "border-destructive")}
         />
+        <WordCount current={promptWordCount} max={PROMPT_MAX_WORDS} />
+        {promptOverLimit && (
+          <p className="text-sm text-destructive" role="alert">
+            Description must be {PROMPT_MAX_WORDS} words or fewer.
+          </p>
+        )}
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2">
@@ -125,14 +167,25 @@ export function EmailForm({
           }
           rows={3}
           disabled={isLoading}
-          className="resize-y"
+          aria-invalid={additionalOverLimit}
+          className={cn("resize-y", additionalOverLimit && "border-destructive")}
         />
+        <WordCount
+          current={additionalWordCount}
+          max={ADDITIONAL_INSTRUCTIONS_MAX_WORDS}
+        />
+        {additionalOverLimit && (
+          <p className="text-sm text-destructive" role="alert">
+            Additional instructions must be {ADDITIONAL_INSTRUCTIONS_MAX_WORDS}{" "}
+            words or fewer.
+          </p>
+        )}
       </div>
 
       <Button
         type="submit"
         size="lg"
-        disabled={isLoading}
+        disabled={isLoading || hasWordLimitError || !formData.prompt.trim()}
         className="h-11 w-full gap-2 text-base"
       >
         {isLoading ? (

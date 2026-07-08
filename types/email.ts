@@ -9,6 +9,9 @@ export const EMAIL_TONES = [
 
 export const EMAIL_LENGTHS = ["Short", "Medium", "Long"] as const;
 
+export const PROMPT_MAX_WORDS = 100;
+export const ADDITIONAL_INSTRUCTIONS_MAX_WORDS = 50;
+
 export type EmailTone = (typeof EMAIL_TONES)[number];
 export type EmailLength = (typeof EMAIL_LENGTHS)[number];
 
