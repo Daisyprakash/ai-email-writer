@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 const protectedLinks = [
   { href: "/app", label: "Generate Email" },
   { href: "/history", label: "Email History" },
+  { href: "/billing", label: "Billing" },
   { href: "/profile", label: "Profile" },
 ];
 

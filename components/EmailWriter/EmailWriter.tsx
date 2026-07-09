@@ -1,7 +1,10 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+import { UpgradeDialog } from "@/components/Billing/UpgradeDialog";
+import { UsageCircle } from "@/components/Billing/UsageCircle";
 import { EmailForm } from "@/components/EmailForm/EmailForm";
 import { GeneratedEmail } from "@/components/GeneratedEmail/GeneratedEmail";
 import { Header } from "@/components/Header/Header";
@@ -19,6 +22,7 @@ import {
   type GenerateEmailErrorResponse,
   type GenerateEmailResponse,
 } from "@/types/email";
+import type { UsageStatus } from "@/types/plan";
 import { exceedsWordLimit } from "@/utils/word-limit";
 
 const DEFAULT_FORM_DATA: EmailFormData = {
@@ -31,10 +35,63 @@ const DEFAULT_FORM_DATA: EmailFormData = {
 export function EmailWriter() {
   const [formData, setFormData] = useState<EmailFormData>(DEFAULT_FORM_DATA);
   const [generatedEmail, setGeneratedEmail] = useState<string | null>(null);
+  const [usage, setUsage] = useState<UsageStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveWarning, setSaveWarning] = useState<string | null>(null);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [upgradeMessage, setUpgradeMessage] = useState("");
   const isGeneratingRef = useRef(false);
+
+  const loadUsage = useCallback(async () => {
+    try {
+      const response = await fetch("/api/billing/usage");
+      const result = (await response.json()) as
+        | { usage: UsageStatus }
+        | { error: string };
+
+      if (response.ok && "usage" in result) {
+        setUsage(result.usage);
+      }
+    } catch {
+      // Usage display is optional on the writer page.
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadUsage();
+  }, [loadUsage]);
+
+  const handleUpgrade = async () => {
+    setIsUpgrading(true);
+
+    try {
+      const response = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planCode: usage?.upgradePlan?.code,
+        }),
+      });
+      const result = (await response.json()) as { url?: string; error?: string };
+
+      if (!response.ok || !result.url) {
+        throw new Error(result.error || "Unable to start checkout.");
+      }
+
+      window.location.href = result.url;
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Unable to start checkout. Please try again.";
+
+      setError(message);
+      setShowUpgradeDialog(false);
+      setIsUpgrading(false);
+    }
+  };
 
   const generateEmail = useCallback(async (data: EmailFormData) => {
     if (isGeneratingRef.current) return;
@@ -59,6 +116,7 @@ export function EmailWriter() {
     setIsLoading(true);
     setError(null);
     setSaveWarning(null);
+    setShowUpgradeDialog(false);
 
     try {
       const response = await fetch("/api/generate-email", {
@@ -77,6 +135,25 @@ export function EmailWriter() {
         | GenerateEmailErrorResponse;
 
       if (!response.ok) {
+        if (
+          response.status === 429 &&
+          "code" in result &&
+          result.code === "USAGE_LIMIT_REACHED"
+        ) {
+          if (result.usage) {
+            setUsage(result.usage);
+          }
+
+          if (result.canUpgrade) {
+            setUpgradeMessage(result.error);
+            setShowUpgradeDialog(true);
+            return;
+          }
+
+          setError(result.error);
+          return;
+        }
+
         throw new Error(
           "error" in result
             ? result.error
@@ -90,7 +167,11 @@ export function EmailWriter() {
 
       setGeneratedEmail(result.generatedEmail);
 
-      if ("saved" in result && result.saved === false) {
+      if (result.usage) {
+        setUsage(result.usage);
+      }
+
+      if (result.saved === false) {
         setSaveWarning(
           "Your email was generated but could not be saved to history. Please try again later."
         );
@@ -135,6 +216,46 @@ export function EmailWriter() {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-12 lg:py-16">
         <Header />
 
+        {usage && (
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle className="text-lg">Daily Usage</CardTitle>
+                  <CardDescription>
+                    {usage.currentPlan.name} plan · {usage.remaining} remaining today
+                  </CardDescription>
+                </div>
+                {usage.canUpgrade && usage.upgradePlan && (
+                  <Link
+                    href="/billing"
+                    className="text-sm font-medium underline underline-offset-4"
+                  >
+                    Upgrade to {usage.upgradePlan.name}
+                  </Link>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="flex items-center gap-6">
+              <UsageCircle usage={usage} size={120} />
+              <div className="text-sm text-muted-foreground">
+                <p>
+                  {usage.dailyUsage} of {usage.dailyLimit} emails used today.
+                </p>
+                <p className="mt-1">
+                  Resets at{" "}
+                  {new Intl.DateTimeFormat("en-IN", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                    day: "numeric",
+                    month: "short",
+                  }).format(new Date(usage.resetsAt))}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid gap-8 lg:grid-cols-2 lg:gap-10">
           <Card className="h-fit shadow-sm">
             <CardHeader>
@@ -177,6 +298,17 @@ export function EmailWriter() {
           />
         </div>
       </div>
+
+      <UpgradeDialog
+        open={showUpgradeDialog}
+        message={upgradeMessage}
+        isUpgrading={isUpgrading}
+        upgradePlanName={usage?.upgradePlan?.name}
+        onOpenChange={setShowUpgradeDialog}
+        onUpgrade={() => {
+          void handleUpgrade();
+        }}
+      />
     </div>
   );
 }

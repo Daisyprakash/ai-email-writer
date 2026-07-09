@@ -50,13 +50,19 @@ export interface SavedEmailSummary {
   createdAt: string;
 }
 
+import type { UsageStatus } from "@/types/plan";
+
 export interface GenerateEmailResponse {
   generatedEmail: string;
   saved: boolean;
+  usage: UsageStatus;
 }
 
 export interface GenerateEmailErrorResponse {
   error: string;
+  code?: "USAGE_LIMIT_REACHED";
+  canUpgrade?: boolean;
+  usage?: UsageStatus;
 }
 
 export interface EmailListResponse {

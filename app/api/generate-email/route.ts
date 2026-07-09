@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { generateEmail } from "@/lib/openai";
 import { createSavedEmail } from "@/services/email.service";
+import { assertCanGenerate, incrementDailyUsage } from "@/services/plan.service";
 import type { GenerateEmailErrorResponse, GenerateEmailResponse } from "@/types/email";
 import { validateGenerateEmailRequest } from "@/utils/validation";
 
@@ -34,6 +35,25 @@ export async function POST(request: Request) {
       );
     }
 
+    const usageResult = await assertCanGenerate(session.user.id);
+
+    if (!usageResult.allowed) {
+      const upgradePlan = usageResult.usage.upgradePlan;
+      const message = usageResult.canUpgrade && upgradePlan
+        ? `You have reached your daily limit on the ${usageResult.usage.currentPlan.name} plan. Upgrade to ${upgradePlan.name} to generate more emails.`
+        : "You have reached your daily generation limit. Please try again after the usage resets.";
+
+      return NextResponse.json<GenerateEmailErrorResponse>(
+        {
+          error: message,
+          code: "USAGE_LIMIT_REACHED",
+          canUpgrade: usageResult.canUpgrade,
+          usage: usageResult.usage,
+        },
+        { status: 429 }
+      );
+    }
+
     const { prompt, tone, length, additionalInstructions } = validation.data;
 
     const generatedEmail = await generateEmail(
@@ -59,7 +79,11 @@ export async function POST(request: Request) {
       console.error("Failed to auto-save generated email:", saveError);
     }
 
-    return NextResponse.json<GenerateEmailResponse>({ generatedEmail, saved });
+    return NextResponse.json<GenerateEmailResponse>({
+      generatedEmail,
+      saved,
+      usage: await incrementDailyUsage(session.user.id),
+    });
   } catch (error) {
     console.error("Email generation failed:", error);
 

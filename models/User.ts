@@ -31,6 +31,24 @@ const UserSchema = new Schema(
       type: String,
       select: false,
     },
+    plan: {
+      type: String,
+      default: "FREE",
+      uppercase: true,
+      trim: true,
+    },
+    planStartedAt: {
+      type: Date,
+      default: null,
+    },
+    planExpiresAt: {
+      type: Date,
+      default: null,
+    },
+    stripeCustomerId: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -43,7 +61,10 @@ export type IUser = InferSchemaType<typeof UserSchema> & {
   updatedAt: Date;
 };
 
-const User =
-  mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
+if (mongoose.models.User) {
+  delete mongoose.models.User;
+}
+
+const User = mongoose.model<IUser>("User", UserSchema);
 
 export default User;

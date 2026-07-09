@@ -12,7 +12,8 @@ export default auth((req) => {
   const isProtectedRoute =
     pathname.startsWith("/app") ||
     pathname.startsWith("/profile") ||
-    pathname.startsWith("/history");
+    pathname.startsWith("/history") ||
+    pathname.startsWith("/billing");
 
   if (isProtectedRoute && !isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
@@ -31,5 +32,13 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/", "/app/:path*", "/profile/:path*", "/history/:path*", "/login", "/signup"],
+  matcher: [
+    "/",
+    "/app/:path*",
+    "/profile/:path*",
+    "/history/:path*",
+    "/billing/:path*",
+    "/login",
+    "/signup",
+  ],
 };

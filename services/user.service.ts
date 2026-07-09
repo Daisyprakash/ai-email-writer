@@ -1,3 +1,4 @@
+import { getDefaultPlanCode } from "@/services/plan.service";
 import { connectDB } from "@/lib/mongodb";
 import User, { type IUser } from "@/models/User";
 import type { AuthProvider, UserProfile } from "@/types/user";
@@ -74,12 +75,15 @@ export async function createCredentialsUser({
     throw new Error("An account with this email already exists.");
   }
 
+  const defaultPlanCode = await getDefaultPlanCode();
+
   const user = await User.create({
     name: name.trim(),
     email: normalizedEmail,
     provider: "credentials",
     role: "user",
     password: passwordHash,
+    plan: defaultPlanCode,
   });
 
   return toUserProfile(user);
