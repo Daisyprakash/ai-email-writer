@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { UpgradeDialog } from "@/components/Billing/UpgradeDialog";
-import { UsageCircle } from "@/components/Billing/UsageCircle";
+import { UsageSummary } from "@/components/Billing/UsageSummary";
 import { EmailForm } from "@/components/EmailForm/EmailForm";
 import { GeneratedEmail } from "@/components/GeneratedEmail/GeneratedEmail";
 import { Header } from "@/components/Header/Header";
@@ -214,47 +213,10 @@ export function EmailWriter() {
       </div>
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-12 lg:py-16">
-        <Header />
-
-        {usage && (
-          <Card className="shadow-sm">
-            <CardHeader className="pb-3">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <CardTitle className="text-lg">Daily Usage</CardTitle>
-                  <CardDescription>
-                    {usage.currentPlan.name} plan · {usage.remaining} remaining today
-                  </CardDescription>
-                </div>
-                {usage.canUpgrade && usage.upgradePlan && (
-                  <Link
-                    href="/billing"
-                    className="text-sm font-medium underline underline-offset-4"
-                  >
-                    Upgrade to {usage.upgradePlan.name}
-                  </Link>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="flex items-center gap-6">
-              <UsageCircle usage={usage} size={120} />
-              <div className="text-sm text-muted-foreground">
-                <p>
-                  {usage.dailyUsage} of {usage.dailyLimit} emails used today.
-                </p>
-                <p className="mt-1">
-                  Resets at{" "}
-                  {new Intl.DateTimeFormat("en-IN", {
-                    hour: "numeric",
-                    minute: "2-digit",
-                    day: "numeric",
-                    month: "short",
-                  }).format(new Date(usage.resetsAt))}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+          <Header />
+          {usage && <UsageSummary usage={usage} />}
+        </div>
 
         <div className="grid gap-8 lg:grid-cols-2 lg:gap-10">
           <Card className="h-fit shadow-sm">

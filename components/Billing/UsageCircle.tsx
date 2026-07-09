@@ -8,11 +8,12 @@ interface UsageCircleProps {
 }
 
 export function UsageCircle({ usage, size = 140 }: UsageCircleProps) {
-  const strokeWidth = 10;
+  const strokeWidth = size <= 96 ? 8 : 10;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const progress = usage.dailyLimit > 0 ? usage.dailyUsage / usage.dailyLimit : 0;
   const dashOffset = circumference * (1 - Math.min(progress, 1));
+  const isCompact = size <= 96;
 
   return (
     <div
@@ -45,8 +46,16 @@ export function UsageCircle({ usage, size = 140 }: UsageCircleProps) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span className="text-2xl font-semibold">{usage.dailyUsage}</span>
-        <span className="text-xs text-muted-foreground">
+        <span className={isCompact ? "text-lg font-semibold" : "text-2xl font-semibold"}>
+          {usage.dailyUsage}
+        </span>
+        <span
+          className={
+            isCompact
+              ? "text-[10px] text-muted-foreground"
+              : "text-xs text-muted-foreground"
+          }
+        >
           of {usage.dailyLimit}
         </span>
       </div>
