@@ -17,6 +17,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { hashPasswordClient } from "@/utils/password.client";
+import {
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_REQUIREMENTS,
+  validatePassword,
+} from "@/utils/password-validation";
 
 export function SignupForm() {
   const router = useRouter();
@@ -33,12 +38,16 @@ export function SignupForm() {
     setError(null);
 
     try {
-      const passwordHash = await hashPasswordClient(password);
+      const passwordError = validatePassword(password);
+      if (passwordError) {
+        setError(passwordError);
+        return;
+      }
 
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password: passwordHash }),
+        body: JSON.stringify({ name, email, password }),
       });
 
       const result = (await response.json()) as { error?: string };
@@ -46,6 +55,8 @@ export function SignupForm() {
       if (!response.ok) {
         throw new Error(result.error || "Unable to create account.");
       }
+
+      const passwordHash = await hashPasswordClient(password);
 
       const signInResult = await signIn("credentials", {
         email,
@@ -116,12 +127,15 @@ export function SignupForm() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="At least 8 characters"
+              placeholder="Create a strong password"
               required
-              minLength={8}
+              minLength={PASSWORD_MIN_LENGTH}
               autoComplete="new-password"
               disabled={isLoading}
             />
+            <p className="text-xs text-muted-foreground">
+              {PASSWORD_REQUIREMENTS}
+            </p>
           </div>
 
           {error && (

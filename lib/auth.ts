@@ -1,7 +1,9 @@
-import NextAuth, { type NextAuthConfig } from "next-auth";
+import NextAuth, { CredentialsSignin, type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
 import { authConfig } from "@/lib/auth.config";
+import { LoginError } from "@/services/user.service";
+import { LOGIN_ERROR_CODES } from "@/utils/login-errors";
 
 const providers: NextAuthConfig["providers"] = [
   Credentials({
@@ -23,7 +25,6 @@ const providers: NextAuthConfig["providers"] = [
           "@/services/user.service"
         );
         const user = await validateCredentialsUser(email, password);
-        if (!user) return null;
 
         return {
           id: user.id,
@@ -32,7 +33,17 @@ const providers: NextAuthConfig["providers"] = [
           image: user.image,
           role: user.role,
         };
-      } catch {
+      } catch (error) {
+        if (error instanceof LoginError) {
+          const signInError = new CredentialsSignin();
+          signInError.code =
+            error.code === "USER_NOT_FOUND"
+              ? LOGIN_ERROR_CODES.USER_NOT_FOUND
+              : LOGIN_ERROR_CODES.INVALID_PASSWORD;
+          throw signInError;
+        }
+
+        console.error("Login failed:", error);
         return null;
       }
     },

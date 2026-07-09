@@ -1,4 +1,8 @@
-import { timingSafeEqual } from "crypto";
+import { createHash, timingSafeEqual } from "crypto";
+
+export function hashPasswordServer(password: string): string {
+  return createHash("sha256").update(password, "utf8").digest("hex");
+}
 
 export function comparePasswordHashes(stored: string, provided: string): boolean {
   if (stored.length !== provided.length) {

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { createCredentialsUser } from "@/services/user.service";
-import { isSha256Hash } from "@/utils/password";
+import { hashPasswordServer } from "@/utils/password.server";
+import { validatePassword } from "@/utils/password-validation";
 
 export async function POST(request: Request) {
   try {
@@ -16,17 +17,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email is required." }, { status: 400 });
     }
 
-    if (typeof password !== "string" || !isSha256Hash(password)) {
+    if (typeof password !== "string") {
       return NextResponse.json(
-        { error: "Invalid password format." },
+        { error: "Password is required." },
         { status: 400 }
       );
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return NextResponse.json({ error: passwordError }, { status: 400 });
     }
 
     const user = await createCredentialsUser({
       name,
       email,
-      passwordHash: password,
+      passwordHash: hashPasswordServer(password),
     });
 
     return NextResponse.json(

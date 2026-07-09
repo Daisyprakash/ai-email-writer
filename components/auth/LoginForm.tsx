@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { hashPasswordClient } from "@/utils/password.client";
+import { getLoginErrorMessage, LOGIN_FALLBACK_MESSAGE } from "@/utils/login-errors";
 
 export function LoginForm() {
   const router = useRouter();
@@ -43,14 +44,14 @@ export function LoginForm() {
       });
 
       if (result?.error) {
-        setError("Invalid email or password. Please try again.");
+        setError(getLoginErrorMessage(result.code));
         return;
       }
 
       router.push(callbackUrl);
       router.refresh();
     } catch {
-      setError("Unable to sign in. Please try again.");
+      setError(LOGIN_FALLBACK_MESSAGE);
     } finally {
       setIsLoading(false);
     }

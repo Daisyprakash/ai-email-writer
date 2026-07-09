@@ -3,6 +3,18 @@ import User, { type IUser } from "@/models/User";
 import type { AuthProvider, UserProfile } from "@/types/user";
 import { comparePasswordHashes } from "@/utils/password.server";
 
+export type LoginErrorCode = "USER_NOT_FOUND" | "INVALID_PASSWORD";
+
+export class LoginError extends Error {
+  code: LoginErrorCode;
+
+  constructor(code: LoginErrorCode) {
+    super(code);
+    this.name = "LoginError";
+    this.code = code;
+  }
+}
+
 function toUserProfile(user: IUser): UserProfile {
   const createdAt =
     user.createdAt instanceof Date
@@ -76,7 +88,7 @@ export async function createCredentialsUser({
 export async function validateCredentialsUser(
   email: string,
   passwordHash: string
-): Promise<UserProfile | null> {
+): Promise<UserProfile> {
   await connectDB();
 
   const user = await User.findOne({ email: email.toLowerCase().trim() }).select(
@@ -84,13 +96,13 @@ export async function validateCredentialsUser(
   );
 
   if (!user?.password) {
-    return null;
+    throw new LoginError("USER_NOT_FOUND");
   }
 
   const isValidPassword = comparePasswordHashes(user.password, passwordHash);
 
   if (!isValidPassword) {
-    return null;
+    throw new LoginError("INVALID_PASSWORD");
   }
 
   return toUserProfile(user);
