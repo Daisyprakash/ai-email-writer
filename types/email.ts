@@ -22,17 +22,55 @@ export interface GenerateEmailRequest {
   additionalInstructions?: string;
 }
 
+export interface EmailFormData {
+  prompt: string;
+  tone: EmailTone;
+  length: EmailLength;
+  additionalInstructions: string;
+}
+
+export interface SavedEmail {
+  id: string;
+  userId: string;
+  prompt: string;
+  tone: EmailTone;
+  length: EmailLength;
+  additionalInstructions?: string;
+  generatedEmail: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavedEmailSummary {
+  id: string;
+  prompt: string;
+  generatedEmail: string;
+  tone: EmailTone;
+  length: EmailLength;
+  createdAt: string;
+}
+
 export interface GenerateEmailResponse {
   generatedEmail: string;
+  saved: boolean;
 }
 
 export interface GenerateEmailErrorResponse {
   error: string;
 }
 
-export interface EmailFormData {
-  prompt: string;
-  tone: EmailTone;
-  length: EmailLength;
-  additionalInstructions: string;
+export interface EmailListResponse {
+  emails: SavedEmailSummary[];
+}
+
+export interface EmailDetailResponse {
+  email: SavedEmail;
+}
+
+export interface EmailDeleteResponse {
+  message: string;
+}
+
+export interface EmailErrorResponse {
+  error: string;
 }

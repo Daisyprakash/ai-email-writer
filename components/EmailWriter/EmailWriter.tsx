@@ -33,6 +33,7 @@ export function EmailWriter() {
   const [generatedEmail, setGeneratedEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveWarning, setSaveWarning] = useState<string | null>(null);
   const isGeneratingRef = useRef(false);
 
   const generateEmail = useCallback(async (data: EmailFormData) => {
@@ -57,6 +58,7 @@ export function EmailWriter() {
     isGeneratingRef.current = true;
     setIsLoading(true);
     setError(null);
+    setSaveWarning(null);
 
     try {
       const response = await fetch("/api/generate-email", {
@@ -87,6 +89,12 @@ export function EmailWriter() {
       }
 
       setGeneratedEmail(result.generatedEmail);
+
+      if ("saved" in result && result.saved === false) {
+        setSaveWarning(
+          "Your email was generated but could not be saved to history. Please try again later."
+        );
+      }
     } catch (err) {
       const message =
         err instanceof TypeError
@@ -114,6 +122,7 @@ export function EmailWriter() {
     setFormData(DEFAULT_FORM_DATA);
     setGeneratedEmail(null);
     setError(null);
+    setSaveWarning(null);
   };
 
   return (
@@ -147,6 +156,14 @@ export function EmailWriter() {
                   role="alert"
                 >
                   {error}
+                </p>
+              )}
+              {saveWarning && (
+                <p
+                  className="animate-in fade-in mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300"
+                  role="status"
+                >
+                  {saveWarning}
                 </p>
               )}
             </CardContent>

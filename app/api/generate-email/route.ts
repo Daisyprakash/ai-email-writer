@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { generateEmail } from "@/lib/openai";
+import { createSavedEmail } from "@/services/email.service";
 import type { GenerateEmailErrorResponse, GenerateEmailResponse } from "@/types/email";
 import { validateGenerateEmailRequest } from "@/utils/validation";
 
@@ -42,7 +43,23 @@ export async function POST(request: Request) {
       additionalInstructions
     );
 
-    return NextResponse.json<GenerateEmailResponse>({ generatedEmail });
+    let saved = true;
+
+    try {
+      await createSavedEmail({
+        userId: session.user.id,
+        prompt,
+        tone,
+        length,
+        additionalInstructions,
+        generatedEmail,
+      });
+    } catch (saveError) {
+      saved = false;
+      console.error("Failed to auto-save generated email:", saveError);
+    }
+
+    return NextResponse.json<GenerateEmailResponse>({ generatedEmail, saved });
   } catch (error) {
     console.error("Email generation failed:", error);
 

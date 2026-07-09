@@ -86,3 +86,66 @@ export function validateGenerateEmailRequest(
     },
   };
 }
+
+export function validateSaveEmailRequest(
+  body: unknown
+):
+  | {
+      success: true;
+      data: {
+        prompt: string;
+        tone: EmailTone;
+        length: EmailLength;
+        additionalInstructions?: string;
+        generatedEmail: string;
+      };
+    }
+  | { success: false; error: string } {
+  if (!body || typeof body !== "object") {
+    return { success: false, error: "Invalid request body." };
+  }
+
+  const { prompt, tone, length, additionalInstructions, generatedEmail } =
+    body as Record<string, unknown>;
+
+  if (typeof prompt !== "string" || !prompt.trim()) {
+    return { success: false, error: "Prompt is required." };
+  }
+
+  if (typeof tone !== "string" || !isValidTone(tone)) {
+    return { success: false, error: "Please provide a valid email tone." };
+  }
+
+  if (typeof length !== "string" || !isValidLength(length)) {
+    return { success: false, error: "Please provide a valid email length." };
+  }
+
+  if (
+    additionalInstructions !== undefined &&
+    additionalInstructions !== null &&
+    typeof additionalInstructions !== "string"
+  ) {
+    return {
+      success: false,
+      error: "Additional instructions must be text.",
+    };
+  }
+
+  if (typeof generatedEmail !== "string" || !generatedEmail.trim()) {
+    return { success: false, error: "Generated email content is required." };
+  }
+
+  return {
+    success: true,
+    data: {
+      prompt: prompt.trim(),
+      tone,
+      length,
+      additionalInstructions:
+        typeof additionalInstructions === "string"
+          ? additionalInstructions.trim()
+          : undefined,
+      generatedEmail: generatedEmail.trim(),
+    },
+  };
+}

@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const protectedLinks = [
-  { href: "/app", label: "Email Writer" },
+  { href: "/app", label: "Generate Email" },
+  { href: "/history", label: "Email History" },
   { href: "/profile", label: "Profile" },
 ];
 
@@ -40,7 +41,9 @@ export function ProtectedNavbar() {
                 href={link.href}
                 className={cn(
                   "rounded-lg px-3 py-2 text-sm transition-colors",
-                  pathname === link.href
+                  pathname === link.href ||
+                    (link.href !== "/app" &&
+                      pathname.startsWith(`${link.href}/`))
                     ? "bg-muted font-medium text-foreground"
                     : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                 )}
