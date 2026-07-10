@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 
+import {
+  buildGuardrailInput,
+  runGuardrails,
+} from "@/lib/ai/guardrails/guardrail-service";
+import { NO_VALID_REQUEST_MESSAGE } from "@/lib/ai/prompts/prompt-templates/constants";
 import { auth } from "@/lib/auth";
 import { generateEmail } from "@/lib/openai";
 import { createSavedEmail } from "@/services/email.service";
-import { assertCanGenerate, incrementDailyUsage } from "@/services/plan.service";
+import {
+  assertCanGenerate,
+  incrementDailyUsage,
+} from "@/services/plan.service";
 import type { GenerateEmailErrorResponse, GenerateEmailResponse } from "@/types/email";
 import { validateGenerateEmailRequest } from "@/utils/validation";
 
@@ -35,6 +43,8 @@ export async function POST(request: Request) {
       );
     }
 
+    const { prompt, tone, length, additionalInstructions } = validation.data;
+
     const usageResult = await assertCanGenerate(session.user.id);
 
     if (!usageResult.allowed) {
@@ -54,7 +64,19 @@ export async function POST(request: Request) {
       );
     }
 
-    const { prompt, tone, length, additionalInstructions } = validation.data;
+    const guardrailResult = runGuardrails(
+      buildGuardrailInput(prompt, additionalInstructions)
+    );
+
+    if (!guardrailResult.allowed) {
+      return NextResponse.json<GenerateEmailResponse>({
+        generatedEmail: NO_VALID_REQUEST_MESSAGE,
+        saved: false,
+        usage: usageResult.usage,
+        blocked: true,
+        blockReason: guardrailResult.message,
+      });
+    }
 
     const generatedEmail = await generateEmail(
       prompt,
@@ -62,6 +84,16 @@ export async function POST(request: Request) {
       length,
       additionalInstructions
     );
+
+    if (generatedEmail.trim() === NO_VALID_REQUEST_MESSAGE) {
+      return NextResponse.json<GenerateEmailResponse>({
+        generatedEmail: NO_VALID_REQUEST_MESSAGE,
+        saved: false,
+        usage: usageResult.usage,
+        blocked: true,
+        blockReason: NO_VALID_REQUEST_MESSAGE,
+      });
+    }
 
     let saved = true;
 

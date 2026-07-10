@@ -170,6 +170,11 @@ export function EmailWriter() {
         setUsage(result.usage);
       }
 
+      if (result.blocked && result.blockReason) {
+        setError(result.blockReason);
+        return;
+      }
+
       if (result.saved === false) {
         setSaveWarning(
           "Your email was generated but could not be saved to history. Please try again later."

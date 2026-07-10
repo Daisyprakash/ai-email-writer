@@ -56,6 +56,10 @@ export interface GenerateEmailResponse {
   generatedEmail: string;
   saved: boolean;
   usage: UsageStatus;
+  /** Set when guardrails block the request before OpenAI is called. */
+  blocked?: boolean;
+  /** User-facing reason shown in the red error banner. */
+  blockReason?: string;
 }
 
 export interface GenerateEmailErrorResponse {
