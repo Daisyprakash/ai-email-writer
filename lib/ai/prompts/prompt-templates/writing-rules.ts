@@ -6,8 +6,8 @@ export function buildWritingRules(tone: EmailTone, length: EmailLength): string 
 
 - Use a ${tone.toLowerCase()} tone throughout
 - ${LENGTH_GUIDANCE[length]}
-- Include an appropriate greeting in the body
-- Include an appropriate closing and sign-off in the signature
+- Include an appropriate greeting at the start of the body
+- Follow the required output fields and keep each field's content separate
 - Use proper paragraph breaks for readability
 - Avoid unnecessary repetition or filler
 - Use professional, clear language`;

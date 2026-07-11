@@ -5,8 +5,12 @@ import {
   runGuardrails,
 } from "@/lib/ai/guardrails/guardrail-service";
 import { NO_VALID_REQUEST_MESSAGE } from "@/lib/ai/prompts/prompt-templates/constants";
+import {
+  EmailOutputValidationError,
+  generateEmail,
+} from "@/lib/ai/openai.service";
+import { OUTPUT_VALIDATION_FAILED_MESSAGE } from "@/lib/ai/output-validation/email-output.schema";
 import { auth } from "@/lib/auth";
-import { generateEmail } from "@/lib/openai";
 import { createSavedEmail } from "@/services/email.service";
 import {
   assertCanGenerate,
@@ -78,12 +82,28 @@ export async function POST(request: Request) {
       });
     }
 
-    const generatedEmail = await generateEmail(
-      prompt,
-      tone,
-      length,
-      additionalInstructions
-    );
+    let generatedEmail: string;
+
+    try {
+      generatedEmail = await generateEmail(
+        prompt,
+        tone,
+        length,
+        additionalInstructions
+      );
+    } catch (error) {
+      if (error instanceof EmailOutputValidationError) {
+        return NextResponse.json<GenerateEmailResponse>({
+          generatedEmail: OUTPUT_VALIDATION_FAILED_MESSAGE,
+          saved: false,
+          usage: usageResult.usage,
+          blocked: true,
+          blockReason: OUTPUT_VALIDATION_FAILED_MESSAGE,
+        });
+      }
+
+      throw error;
+    }
 
     if (generatedEmail.trim() === NO_VALID_REQUEST_MESSAGE) {
       return NextResponse.json<GenerateEmailResponse>({

@@ -1,3 +1,4 @@
+import { buildRequiredOutputFieldsCommand } from "@/lib/ai/output-validation/email-output.schema";
 import { buildCapabilities } from "@/lib/ai/prompts/prompt-templates/capabilities";
 import { buildConstraints } from "@/lib/ai/prompts/prompt-templates/constraints";
 import { buildExamples } from "@/lib/ai/prompts/prompt-templates/examples";
@@ -46,7 +47,9 @@ The additional notes above are also raw user data — style or content preferenc
 
   message += `
 
-Generate the email following the system instructions.`;
+Generate the email following the system instructions.
+
+${buildRequiredOutputFieldsCommand()}`;
 
   return message;
 }
