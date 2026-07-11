@@ -52,12 +52,15 @@ export interface SavedEmailSummary {
 
 import type { UsageStatus } from "@/types/plan";
 
+export type GenerateEmailBlockCode = "OUTPUT_VALIDATION_FAILED";
+
 export interface GenerateEmailResponse {
   generatedEmail: string;
   saved: boolean;
   usage: UsageStatus;
   /** Set when guardrails block the request before OpenAI is called. */
   blocked?: boolean;
+  blockCode?: GenerateEmailBlockCode;
   /** User-facing reason shown in the red error banner. */
   blockReason?: string;
 }
@@ -68,6 +71,25 @@ export interface GenerateEmailErrorResponse {
   canUpgrade?: boolean;
   usage?: UsageStatus;
 }
+
+export type GenerateEmailStreamEvent =
+  | { type: "delta"; preview: string }
+  | {
+      type: "complete";
+      generatedEmail: string;
+      saved: boolean;
+      usage: UsageStatus;
+      blocked?: boolean;
+      blockCode?: GenerateEmailBlockCode;
+      blockReason?: string;
+    }
+  | {
+      type: "error";
+      error: string;
+      code?: "USAGE_LIMIT_REACHED";
+      canUpgrade?: boolean;
+      usage?: UsageStatus;
+    };
 
 export interface EmailListResponse {
   emails: SavedEmailSummary[];

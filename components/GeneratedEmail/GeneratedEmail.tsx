@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 interface GeneratedEmailProps {
   email: string | null;
   isLoading: boolean;
+  validationFailed?: boolean;
+  validationFailedMessage?: string;
   onRegenerate: () => void;
   onClear: () => void;
 }
@@ -25,6 +27,8 @@ interface GeneratedEmailProps {
 export function GeneratedEmail({
   email,
   isLoading,
+  validationFailed = false,
+  validationFailedMessage,
   onRegenerate,
   onClear,
 }: GeneratedEmailProps) {
@@ -38,7 +42,7 @@ export function GeneratedEmail({
   }, [copied]);
 
   const handleCopy = async () => {
-    if (!email) return;
+    if (!email || validationFailed) return;
 
     try {
       await navigator.clipboard.writeText(email);
@@ -48,7 +52,7 @@ export function GeneratedEmail({
     }
   };
 
-  if (!email && !isLoading) {
+  if (email === null && !isLoading) {
     return (
       <Card className="animate-in fade-in duration-500 border-dashed bg-muted/20">
         <CardContent className="flex min-h-64 flex-col items-center justify-center gap-3 py-12 text-center">
@@ -76,41 +80,73 @@ export function GeneratedEmail({
       <CardHeader className="border-b">
         <CardTitle>Generated Email</CardTitle>
         <CardDescription>
-          Review, copy, or regenerate a new variation.
+          {isLoading
+            ? "Your email is being written..."
+            : validationFailed
+              ? "This response could not be saved."
+              : "Review, copy, or regenerate a new variation."}
         </CardDescription>
       </CardHeader>
 
       <CardContent className="pt-6">
-        {isLoading ? (
+        {isLoading && !email ? (
           <LoadingSpinner />
         ) : (
-          <div className="whitespace-pre-wrap text-sm leading-7 text-foreground/90 sm:text-base">
-            {email}
+          <div className="relative min-h-32">
+            <div
+              className={cn(
+                "whitespace-pre-wrap text-sm leading-7 text-foreground/90 sm:text-base",
+                validationFailed &&
+                  "pointer-events-none select-none blur-[2px] opacity-50"
+              )}
+              aria-hidden={validationFailed}
+            >
+              {email}
+              {isLoading && (
+                <span
+                  className="ml-0.5 inline-block h-[1.1em] w-0.5 animate-pulse bg-primary align-[-0.15em]"
+                  aria-hidden="true"
+                />
+              )}
+            </div>
+
+            {validationFailed && validationFailedMessage && (
+              <div
+                className="absolute inset-0 flex items-center justify-center p-4"
+                role="alert"
+              >
+                <p className="max-w-sm rounded-lg border border-destructive/30 bg-background/95 px-4 py-3 text-center text-sm text-destructive shadow-sm backdrop-blur-sm">
+                  {validationFailedMessage}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
 
       {email && !isLoading && (
         <CardFooter className="flex flex-wrap gap-2 border-t bg-muted/30">
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            onClick={handleCopy}
-            className="gap-2"
-          >
-            {copied ? (
-              <>
-                <Check className="size-4" aria-hidden="true" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy className="size-4" aria-hidden="true" />
-                Copy Email
-              </>
-            )}
-          </Button>
+          {!validationFailed && (
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={handleCopy}
+              className="gap-2"
+            >
+              {copied ? (
+                <>
+                  <Check className="size-4" aria-hidden="true" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="size-4" aria-hidden="true" />
+                  Copy Email
+                </>
+              )}
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"

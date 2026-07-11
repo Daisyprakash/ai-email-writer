@@ -8,6 +8,7 @@ import { NO_VALID_REQUEST_MESSAGE } from "@/lib/ai/prompts/prompt-templates/cons
 import {
   buildEmailOutputJsonSchema,
   formatEmailForDisplay,
+  formatStreamingEmailPreview,
   OUTPUT_VALIDATION_FAILED_MESSAGE,
   parseEmailOutputJson,
 } from "@/lib/ai/output-validation/email-output.schema";
@@ -90,7 +91,7 @@ function logOpenAIResponse(
 
   if (usage) {
     console.log(
-      `Tokens — prompt: ${usage.prompt_tokens ?? 0}, completion: ${usage.completion_tokens ?? 0}, total: ${usage.total_tokens ?? 0}`
+      `Tokens — input: ${usage.prompt_tokens ?? 0}, output: ${usage.completion_tokens ?? 0}, total: ${usage.total_tokens ?? 0}`
     );
     console.log(divider);
   }
@@ -111,13 +112,12 @@ function logOutputValidationFailure(errors: string[]): void {
   console.log("-".repeat(60));
 }
 
-export async function generateEmail(
+function getGenerationConfig(
   prompt: string,
   tone: EmailTone,
   length: EmailLength,
   additionalInstructions?: string
-): Promise<string> {
-  const openai = getOpenAIClient();
+) {
   const model = "gpt-4o-mini";
   const temperature = 0.6;
   const maxTokens = 1024;
@@ -132,6 +132,120 @@ export async function generateEmail(
       content: buildUserPrompt(prompt, additionalInstructions),
     },
   ];
+
+  return { model, temperature, maxTokens, messages };
+}
+
+function processEmailOutput(raw: string): string {
+  const parsed = parseEmailOutputJson(raw);
+
+  if (!parsed.success) {
+    logOutputValidationFailure(["Response is not valid JSON."]);
+    throw new EmailOutputValidationError();
+  }
+
+  if (parsed.record.invalidRequest === true) {
+    const message = parsed.record.message;
+
+    if (typeof message === "string" && message.trim() === NO_VALID_REQUEST_MESSAGE) {
+      return NO_VALID_REQUEST_MESSAGE;
+    }
+  }
+
+  const validation = validateEmailOutput(parsed.record);
+
+  if (!validation.valid) {
+    logOutputValidationFailure(validation.errors);
+    throw new EmailOutputValidationError();
+  }
+
+  return formatEmailForDisplay(validation.email);
+}
+
+export type EmailGenerationStreamEvent =
+  | { type: "delta"; preview: string }
+  | { type: "done"; email: string };
+
+export async function* streamGenerateEmail(
+  prompt: string,
+  tone: EmailTone,
+  length: EmailLength,
+  additionalInstructions?: string
+): AsyncGenerator<EmailGenerationStreamEvent> {
+  const openai = getOpenAIClient();
+  const { model, temperature, maxTokens, messages } = getGenerationConfig(
+    prompt,
+    tone,
+    length,
+    additionalInstructions
+  );
+
+  logOpenAIRequest({
+    model,
+    temperature,
+    maxTokens,
+    tone,
+    length,
+    messages,
+  });
+
+  const stream = await openai.chat.completions.create({
+    model,
+    messages,
+    temperature,
+    max_tokens: maxTokens,
+    stream: true,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "email_output",
+        strict: true,
+        schema: buildEmailOutputJsonSchema(),
+      },
+    },
+  });
+
+  let raw = "";
+
+  for await (const chunk of stream) {
+    const delta = chunk.choices[0]?.delta?.content ?? "";
+
+    if (!delta) {
+      continue;
+    }
+
+    raw += delta;
+    yield {
+      type: "delta",
+      preview: formatStreamingEmailPreview(raw),
+    };
+  }
+
+  const trimmed = raw.trim();
+
+  if (!trimmed) {
+    throw new Error("The AI did not return an email. Please try again.");
+  }
+
+  logOpenAIResponse(trimmed);
+
+  const email = processEmailOutput(trimmed);
+  yield { type: "done", email };
+}
+
+export async function generateEmail(
+  prompt: string,
+  tone: EmailTone,
+  length: EmailLength,
+  additionalInstructions?: string
+): Promise<string> {
+  const openai = getOpenAIClient();
+  const { model, temperature, maxTokens, messages } = getGenerationConfig(
+    prompt,
+    tone,
+    length,
+    additionalInstructions
+  );
 
   logOpenAIRequest({
     model,
@@ -165,27 +279,5 @@ export async function generateEmail(
 
   logOpenAIResponse(raw, completion.usage);
 
-  const parsed = parseEmailOutputJson(raw);
-
-  if (!parsed.success) {
-    logOutputValidationFailure(["Response is not valid JSON."]);
-    throw new EmailOutputValidationError();
-  }
-
-  if (parsed.record.invalidRequest === true) {
-    const message = parsed.record.message;
-
-    if (typeof message === "string" && message.trim() === NO_VALID_REQUEST_MESSAGE) {
-      return NO_VALID_REQUEST_MESSAGE;
-    }
-  }
-
-  const validation = validateEmailOutput(parsed.record);
-
-  if (!validation.valid) {
-    logOutputValidationFailure(validation.errors);
-    throw new EmailOutputValidationError();
-  }
-
-  return formatEmailForDisplay(validation.email);
+  return processEmailOutput(raw);
 }

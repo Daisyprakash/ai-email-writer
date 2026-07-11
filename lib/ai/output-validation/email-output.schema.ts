@@ -26,6 +26,9 @@ export type EmailOutput = {
 export const OUTPUT_VALIDATION_FAILED_MESSAGE =
   "Sorry, we couldn't generate a valid email. Please try again.";
 
+export const OUTPUT_VALIDATION_FAILED_DISPLAY_MESSAGE =
+  "This response failed validation and has not been saved.";
+
 export function buildRequiredOutputFieldsCommand(): string {
   const fieldLines = EMAIL_OUTPUT_FIELDS.map(
     (field) => `- ${field.key} (required): ${field.contentRule}`
@@ -88,6 +91,57 @@ Rules:
 
 export function formatEmailForDisplay(email: EmailOutput): string {
   return `Subject:\n${email.subject}\n\nBody:\n${email.body}\n\nSignature:\n${email.signature}`;
+}
+
+function unescapePartialJsonString(value: string): string {
+  return value
+    .replace(/\\n/g, "\n")
+    .replace(/\\t/g, "\t")
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, "\\");
+}
+
+export function extractPartialJsonString(
+  raw: string,
+  key: string
+): string | null {
+  const pattern = new RegExp(
+    `"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)(?:"|$)`,
+    "s"
+  );
+  const match = raw.match(pattern);
+
+  if (!match) {
+    return null;
+  }
+
+  return unescapePartialJsonString(match[1]);
+}
+
+export function formatStreamingEmailPreview(raw: string): string {
+  const subject = extractPartialJsonString(raw, "subject");
+  const body = extractPartialJsonString(raw, "body");
+  const signature = extractPartialJsonString(raw, "signature");
+  const parts: string[] = [];
+
+  if (subject !== null) {
+    parts.push(`Subject:\n${subject}`);
+  }
+
+  if (body !== null) {
+    parts.push(`Body:\n${body}`);
+  }
+
+  if (signature !== null) {
+    parts.push(`Signature:\n${signature}`);
+  }
+
+  if (parts.length > 0) {
+    return parts.join("\n\n");
+  }
+
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : "";
 }
 
 export function extractJsonContent(raw: string): string {

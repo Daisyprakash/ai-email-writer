@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { OUTPUT_VALIDATION_FAILED_DISPLAY_MESSAGE } from "@/lib/ai/output-validation/email-output.schema";
 import {
   ADDITIONAL_INSTRUCTIONS_MAX_WORDS,
   PROMPT_MAX_WORDS,
@@ -22,6 +23,7 @@ import {
   type GenerateEmailResponse,
 } from "@/types/email";
 import type { UsageStatus } from "@/types/plan";
+import { consumeGenerateEmailStream } from "@/utils/generate-email-stream";
 import { exceedsWordLimit } from "@/utils/word-limit";
 
 const DEFAULT_FORM_DATA: EmailFormData = {
@@ -39,6 +41,7 @@ export function EmailWriter() {
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveWarning, setSaveWarning] = useState<string | null>(null);
+  const [validationFailed, setValidationFailed] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [upgradeMessage, setUpgradeMessage] = useState("");
   const isGeneratingRef = useRef(false);
@@ -113,8 +116,10 @@ export function EmailWriter() {
 
     isGeneratingRef.current = true;
     setIsLoading(true);
+    setGeneratedEmail("");
     setError(null);
     setSaveWarning(null);
+    setValidationFailed(false);
     setShowUpgradeDialog(false);
 
     try {
@@ -129,53 +134,108 @@ export function EmailWriter() {
         }),
       });
 
-      const result = (await response.json()) as
-        | GenerateEmailResponse
-        | GenerateEmailErrorResponse;
+      const contentType = response.headers.get("content-type") ?? "";
 
-      if (!response.ok) {
-        if (
-          response.status === 429 &&
-          "code" in result &&
-          result.code === "USAGE_LIMIT_REACHED"
-        ) {
-          if (result.usage) {
-            setUsage(result.usage);
-          }
+      if (contentType.includes("application/json")) {
+        const result = (await response.json()) as
+          | GenerateEmailResponse
+          | GenerateEmailErrorResponse;
 
-          if (result.canUpgrade) {
-            setUpgradeMessage(result.error);
-            setShowUpgradeDialog(true);
+        if (!response.ok) {
+          if (
+            response.status === 429 &&
+            "code" in result &&
+            result.code === "USAGE_LIMIT_REACHED"
+          ) {
+            if (result.usage) {
+              setUsage(result.usage);
+            }
+
+            if (result.canUpgrade) {
+              setUpgradeMessage(result.error);
+              setShowUpgradeDialog(true);
+              return;
+            }
+
+            setError(result.error);
             return;
           }
 
-          setError(result.error);
+          throw new Error(
+            "error" in result
+              ? result.error
+              : "Failed to generate email. Please try again."
+          );
+        }
+
+        if (!("generatedEmail" in result) || !result.generatedEmail) {
+          throw new Error("No email was returned. Please try again.");
+        }
+
+        setGeneratedEmail(result.generatedEmail);
+
+        if (result.usage) {
+          setUsage(result.usage);
+        }
+
+        if (result.blocked && result.blockReason) {
+          setError(result.blockReason);
           return;
         }
 
-        throw new Error(
-          "error" in result
-            ? result.error
-            : "Failed to generate email. Please try again."
-        );
-      }
+        if (result.saved === false) {
+          setSaveWarning(
+            "Your email was generated but could not be saved to history. Please try again later."
+          );
+        }
 
-      if (!("generatedEmail" in result) || !result.generatedEmail) {
-        throw new Error("No email was returned. Please try again.");
-      }
-
-      setGeneratedEmail(result.generatedEmail);
-
-      if (result.usage) {
-        setUsage(result.usage);
-      }
-
-      if (result.blocked && result.blockReason) {
-        setError(result.blockReason);
         return;
       }
 
-      if (result.saved === false) {
+      if (!response.ok) {
+        throw new Error("Failed to generate email. Please try again.");
+      }
+
+      const finalEvent = await consumeGenerateEmailStream(response, (preview) => {
+        if (preview) {
+          setGeneratedEmail(preview);
+        }
+      });
+
+      if (finalEvent.type === "error") {
+        if (finalEvent.code === "USAGE_LIMIT_REACHED") {
+          if (finalEvent.usage) {
+            setUsage(finalEvent.usage);
+          }
+
+          if (finalEvent.canUpgrade) {
+            setUpgradeMessage(finalEvent.error);
+            setShowUpgradeDialog(true);
+            return;
+          }
+        }
+
+        throw new Error(finalEvent.error);
+      }
+
+      if (
+        finalEvent.blocked &&
+        finalEvent.blockCode === "OUTPUT_VALIDATION_FAILED"
+      ) {
+        setUsage(finalEvent.usage);
+        setValidationFailed(true);
+        return;
+      }
+
+      setGeneratedEmail(finalEvent.generatedEmail);
+      setUsage(finalEvent.usage);
+
+      if (finalEvent.blocked && finalEvent.blockReason) {
+        setError(finalEvent.blockReason);
+        return;
+      }
+
+      if (finalEvent.saved === false) {
         setSaveWarning(
           "Your email was generated but could not be saved to history. Please try again later."
         );
@@ -189,6 +249,7 @@ export function EmailWriter() {
             : "Something went wrong. Please try again.";
 
       setError(message);
+      setGeneratedEmail(null);
     } finally {
       setIsLoading(false);
       isGeneratingRef.current = false;
@@ -208,6 +269,7 @@ export function EmailWriter() {
     setGeneratedEmail(null);
     setError(null);
     setSaveWarning(null);
+    setValidationFailed(false);
   };
 
   return (
@@ -260,6 +322,8 @@ export function EmailWriter() {
           <GeneratedEmail
             email={generatedEmail}
             isLoading={isLoading}
+            validationFailed={validationFailed}
+            validationFailedMessage={OUTPUT_VALIDATION_FAILED_DISPLAY_MESSAGE}
             onRegenerate={handleRegenerate}
             onClear={handleClear}
           />
